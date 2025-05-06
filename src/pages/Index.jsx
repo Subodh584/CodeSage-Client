@@ -58,8 +58,14 @@ const Index = () => {
           formData.append('images', file);
         }
       }
+
+      // Debug environment variable
+      console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
       
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/analyze`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      console.log('Using API URL:', apiUrl);
+      
+      const response = await fetch(`${apiUrl}/api/analyze`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
