@@ -1,84 +1,77 @@
-
-const CACHE_NAME = 'codesage-v1';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'codesage-cache-v1';
+const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
+  '/icons/icon-72x72.png',
+  '/icons/icon-96x96.png',
+  '/icons/icon-128x128.png',
+  '/icons/icon-144x144.png',
+  '/icons/icon-152x152.png',
+  '/icons/icon-192x192.png',
+  '/icons/icon-384x384.png',
+  '/icons/icon-512x512.png'
 ];
 
-// Install service worker
-self.addEventListener('install', (event) => {
+// Install event - cache assets
+self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(ASSETS_TO_CACHE);
+      .then(cache => {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
       })
   );
 });
 
-// Activate and clean up old caches
-self.addEventListener('activate', (event) => {
+// Activate event - clean up old caches
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.filter((cacheName) => {
-          return cacheName !== CACHE_NAME;
-        }).map((cacheName) => {
-          return caches.delete(cacheName);
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
         })
       );
     })
   );
 });
 
-// Serve cached content when offline
-self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-
-  // Handle API requests differently - don't cache them
-  if (event.request.url.includes('/api/')) {
-    return;
-  }
-
+// Fetch event - serve from cache, fall back to network
+self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
-      .then((response) => {
+      .then(response => {
+        // Cache hit - return response
         if (response) {
           return response;
         }
-        
-        // Clone the request because it's a one-time use stream
+
+        // Clone the request
         const fetchRequest = event.request.clone();
-        
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+
+        return fetch(fetchRequest).then(
+          response => {
+            // Check if we received a valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Clone the response
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
             return response;
           }
-          
-          // Clone the response because it's a one-time use stream
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-            
-          return response;
-        }).catch(() => {
-          // If fetch fails (offline), try to serve the offline page
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          
-          return null;
-        });
+        );
       })
   );
 });
